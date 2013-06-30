@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<extension
+    version="2.5"
+    type="plugin"
+    group="vmpayment"
+    method="upgrade"
+>
+    <name>Paynet Payment for VirtueMart</name>
+    <author>Artem Ponomarenko</author>
+    <creationDate>July 2013</creationDate>
+    <license>MIT</license>
+    <authorEmail>imenem@inbox.ru</authorEmail>
+    <version>0.1.0</version>
+    <description>
+        <![CDATA[<a href="http://payneteasy.com/" target="_blank">PaynetEasy</a> payment provider. ]]>
+    </description>
+    <files>
+        <filename plugin="paynet">paynet.php</filename>
+        <filename plugin="paynet">index.html</filename>
+    </files>
+    <languages>
+        <language tag="en-GB">language/en-GB.plg_vmpayment_paynet.ini</language>
+        <language tag="ru-RU">language/ru-RU.plg_vmpayment_paynet.ini</language>
+    </languages>
+
+    <params addpath="/administrator/components/com_virtuemart/elements">
+        <param type="vmjpluginwarning" />
+        <param
+            name="end_point"
+            type="text"
+            label="VMPAYMENT_PAYNET_END_POINT"
+            description="VMPAYMENT_PAYNET_END_POINT_DESC"
+        />
+        <param
+            name="login"
+            type="text"
+            label="VMPAYMENT_PAYNET_LOGIN"
+            description="VMPAYMENT_PAYNET_LOGIN_DESC"
+        />
+        <param
+            name="control"
+            type="text"
+            label="VMPAYMENT_PAYNET_CONTROL"
+            description="VMPAYMENT_PAYNET_CONTROL_DESC"
+        />
+        <param
+            name="sandbox_gateway"
+            type="text"
+            label="VMPAYMENT_PAYNET_SANDBOX_GATEWAY"
+            description="VMPAYMENT_PAYNET_SANDBOX_GATEWAY_DESC"
+        />
+        <param
+            name="production_gateway"
+            type="text"
+            label="VMPAYMENT_PAYNET_PRODUCTION_GATEWAY"
+            description="VMPAYMENT_PAYNET_PRODUCTION_GATEWAY_DESC"
+        />
+        <param
+            name="sandbox_enabled"
+            type="radio"
+            default="1"
+            label="VMPAYMENT_PAYNET_SANDBOX_ENABLED"
+            description="VMPAYMENT_PAYNET_SANDBOX_ENABLED_DESC"
+        >
+            <option value="0">COM_VIRTUEMART_NO</option>
+            <option value="1">COM_VIRTUEMART_YES</option>
+        </param>
+    </params>
+</extension>
