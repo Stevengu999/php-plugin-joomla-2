@@ -1,7 +1,5 @@
 <?php
 
-$oldErrorLevel = error_reporting(-1);
-
 defined ('_JEXEC') or die('Restricted access');
 
 jimport('joomla.log.log');
@@ -93,19 +91,8 @@ class plgVMPaymentPaynet extends vmPSPlugin
 			return null; // Another method was selected, do nothing
 		}
 
-        $orderId = JRequest::getInt('orderId', 0);
-        $order   = VmModel::getModel('orders')->getOrder($orderId);
-
-        if (!$order)
-        {
-            $exception = new RuntimeException("Can not find order with id '{$orderId}'");
-            $this->logException($exception);
-
-            throw $exception;
-        }
-
+        $order   = $this->getOrder(JRequest::getInt('orderId', 0));
         $address = $this->getAddress($order);
-        $this->loadAddress($address);
 
         try
         {
@@ -135,6 +122,33 @@ class plgVMPaymentPaynet extends vmPSPlugin
         }
 
 		VirtueMartCart::getCart()->emptyCart();
+	}
+
+	/**
+	 * Display stored payment data for an order
+	 *
+	 * @see components/com_virtuemart/helpers/vmPSPlugin::plgVmOnShowOrderBEPayment()
+	 */
+	function plgVmOnShowOrderBEPayment($virtuemartOrderId, $paymentMethodId)
+    {
+		if (!$this->selectedThisByMethodId($paymentMethodId))
+        {
+			return null; // Another method was selected, do nothing
+		}
+
+        $order   = $this->getOrder($virtuemartOrderId);
+        $address = $this->getAddress($order);
+
+		$html  = '<table class="adminlist" width="50%">' . "\n";
+		$html .= $this->getHtmlHeaderBE();
+
+        $html .= $this->getHtmlRowBE('PAYNET_CLIENT_ORDER_ID',  $address->client_order_id);
+        $html .= $this->getHtmlRowBE('PAYNET_PAYNET_ORDER_ID',  $address->paynet_order_id);
+        $html .= $this->getHtmlRowBE('PAYNET_ORDER_STAGE',      $address->transport_stage);
+        $html .= $this->getHtmlRowBE('PAYNET_ORDER_STATUS',     $address->paynet_status);
+
+		$html .= '</table>' . "\n";
+		return $html;
 	}
 
 	/**
@@ -214,7 +228,7 @@ class plgVMPaymentPaynet extends vmPSPlugin
 	 * @return      null|boolean                            True on succes, false on failures,
      *                                                      null when this plugin was not selected.
 	 */
-	public function plgVmDisplayListFEPayment (VirtueMartCart $cart, $selected = 0, array &$htmlIn = array())
+	public function plgVmDisplayListFEPayment(VirtueMartCart $cart, $selected = 0, array &$htmlIn = array())
     {
 		return $this->displayListFE($cart, $selected, $htmlIn);
 	}
@@ -241,7 +255,7 @@ class plgVMPaymentPaynet extends vmPSPlugin
 	 *
 	 * @return      boolean     Always true
 	 */
-	protected function checkConditions()
+	protected function checkConditions($cart, $method, $cartPrices)
     {
 		return true;
 	}
@@ -257,7 +271,7 @@ class plgVMPaymentPaynet extends vmPSPlugin
     {
         if (!$this->paynetProcessorAggregate)
         {
-            require_once __DIR__ . '/paynet_procesor_aggregate.php';
+            require_once __DIR__ . '/paynet_processor_aggregate.php';
             $this->paynetProcessorAggregate = new PaynetProcessorAggregate($config);
         }
 
@@ -314,6 +328,7 @@ class plgVMPaymentPaynet extends vmPSPlugin
     {
         $paynetData = $this->getDataByOrderId($address->virtuemart_order_id);
 
+        $address->client_order_id = $paynetData->client_order_id;
         $address->paynet_order_id = $paynetData->paynet_order_id;
         $address->transport_stage = $paynetData->transport_stage;
         $address->paynet_status   = $paynetData->paynet_status;
@@ -388,6 +403,30 @@ class plgVMPaymentPaynet extends vmPSPlugin
                                                  '&orderId='  . $address->virtuemart_order_id .
                                                  '&methodId=' . $address->virtuemart_paymentmethod_id);
     }
-}
 
-error_reporting($oldErrorLevel);
+    /**
+     * Get order from DB by virtuemart order id.
+     * Also method loads additional paynet address data.
+     *
+     * @param       integer         $orderId            Virtuemart order id
+     *
+     * @return      array                               Order
+     */
+    protected function getOrder($orderId)
+    {
+        $order = VmModel::getModel('orders')->getOrder($orderId);
+
+        if (!$order)
+        {
+            $exception = new RuntimeException("Can not find order with id '{$orderId}'");
+            $this->logException($exception);
+
+            throw $exception;
+        }
+
+        $address = $this->getAddress($order);
+        $this->loadAddress($address);
+
+        return $order;
+    }
+}
