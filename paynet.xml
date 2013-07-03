@@ -16,13 +16,13 @@
         <![CDATA[<a href="http://payneteasy.com/" target="_blank">PaynetEasy</a> payment provider. ]]>
     </description>
     <files>
+        <folder plugin="paynet">vendor</folder>
         <filename plugin="paynet">paynet_processor_aggregate.php</filename>
         <filename plugin="paynet">paynet.php</filename>
         <filename plugin="paynet">index.html</filename>
     </files>
     <languages>
         <language tag="en-GB">language/en-GB.plg_vmpayment_paynet.ini</language>
-        <language tag="ru-RU">language/ru-RU.plg_vmpayment_paynet.ini</language>
     </languages>
 
     <params addpath="/administrator/components/com_virtuemart/elements">
