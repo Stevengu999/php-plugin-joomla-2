@@ -16,6 +16,7 @@
         <![CDATA[<a href="http://payneteasy.com/" target="_blank">PaynetEasy</a> payment provider. ]]>
     </description>
     <files>
+        <filename plugin="paynet">paynet_processor_aggregate.php</filename>
         <filename plugin="paynet">paynet.php</filename>
         <filename plugin="paynet">index.html</filename>
     </files>
@@ -66,5 +67,21 @@
             <option value="0">COM_VIRTUEMART_NO</option>
             <option value="1">COM_VIRTUEMART_YES</option>
         </param>
+        <param
+            name="order_success_status"
+            type="vmorderstate"
+            scope="com_virtuemart"
+            default="C"
+            label="VMPAYMENT_PAYNET_ORDER_SUCCESS_STATUS"
+            description="VMPAYMENT_PAYNET_ORDER_SUCCESS_STATUS_DESC"
+        />
+        <param
+            name="order_failure_status"
+            type="vmorderstate"
+            scope="com_virtuemart"
+            default="X"
+            label="VMPAYMENT_PAYNET_ORDER_FAILURE_STATUS"
+            description="VMPAYMENT_PAYNET_ORDER_FAILURE_STATUS_DESC"
+        />
     </params>
 </extension>

@@ -1,9 +1,13 @@
 <?php
 
+$oldErrorLevel = error_reporting(-1);
+
 defined ('_JEXEC') or die('Restricted access');
 
+jimport('joomla.log.log');
+
 require_once JPATH_VM_PLUGINS . DS . 'vmpsplugin.php';
-require_once __DIR__ . '/PaynetProcesorAggregate.php';
+require_once JPATH_VM_SITE . DS . 'helpers' . DS . 'cart.php';
 
 use PaynetEasy\Paynet\PaynetProcessorAggregate;
 
@@ -15,7 +19,7 @@ class plgVMPaymentPaynet extends vmPSPlugin
      *
      * @see plgVMPaymentPaynet::getPaynetProcessorAggregate()
      *
-     * @var PaynetProcessorAggregate
+     * @var PaynetEasy\Paynet\PaynetProcessorAggregate
      */
     protected $paynetProcessorAggregate;
 
@@ -34,6 +38,8 @@ class plgVMPaymentPaynet extends vmPSPlugin
 	}
 
 	/**
+     * Start payment
+     *
 	 * @param       $cart
 	 * @param       $order
      *
@@ -41,21 +47,95 @@ class plgVMPaymentPaynet extends vmPSPlugin
 	 */
 	public function plgVmConfirmedOrder(VirtueMartCart $cart, array $order)
     {
-        $config = $this->getVmPluginMethod($cart->virtuemart_paymentmethod_id);
+        $config  = $this->getVmPluginMethod($cart->virtuemart_paymentmethod_id);
+        $address = $this->getAddress($order);
 
 		if (    !$config
             ||  !$this->selectedThisElement($config->payment_element))
         {
-			return false; // Another method was selected, do nothing
+			return null; // Another method was selected, do nothing
 		}
 
-        $response = $this
-            ->getPaynetProcessorAggregate($config)
-            ->startSale($order);
+        try
+        {
+            $response = $this
+                ->getPaynetProcessorAggregate($config)
+                ->startSale($address, $this->getReturnUrl($address));
+        }
+        catch (Exception $e)
+        {
+            $this->logException($e);
+            $this->saveAddress($address);
+            $this->cancelOrder($address, $config);
 
-        header("Location: {$response->getRedirectUrl()}");
-        exit;
+            return $this->displayError();
+        }
+
+        $this->saveAddress($address);
+
+		$cart->_confirmDone     = false;
+		$cart->_dataValidated   = false;
+		$cart->setCartIntoSession();
+
+        JFactory::getApplication()->redirect($response->getRedirectUrl());
     }
+
+	/**
+     * Process response from payment system
+	 */
+	function plgVmOnPaymentResponseReceived()
+    {
+        $config = $this->getVmPluginMethod(JRequest::getInt('methodId', 0));
+
+		if (    !$config
+            ||  !$this->selectedThisElement($config->payment_element))
+        {
+			return null; // Another method was selected, do nothing
+		}
+
+        $orderId = JRequest::getInt('orderId', 0);
+        $order   = VmModel::getModel('orders')->getOrder($orderId);
+
+        if (!$order)
+        {
+            $exception = new RuntimeException("Can not find order with id '{$orderId}'");
+            $this->logException($exception);
+
+            throw $exception;
+        }
+
+        $address = $this->getAddress($order);
+        $this->loadAddress($address);
+
+        try
+        {
+            $this
+                ->getPaynetProcessorAggregate($config)
+                ->finishSale($address, $_REQUEST);
+        }
+        catch (Exception $e)
+        {
+            $this->logException($e);
+            $this->saveAddress($address);
+            $this->cancelOrder($address, $config);
+
+            return $this->displayError();
+        }
+
+        $this->saveAddress($address);
+
+        if ($address->paynet_status == 'approved')
+        {
+            $this->approveOrder($address, $config);
+        }
+        else
+        {
+            $this->cancelOrder($address, $config);
+            $this->displayError('VMPAYMENT_PAYNET_PAYMENT_DECLINED');
+        }
+
+		VirtueMartCart::getCart()->emptyCart();
+	}
 
 	/**
      * Get plugin data table definition
@@ -72,7 +152,7 @@ class plgVMPaymentPaynet extends vmPSPlugin
 			'client_order_id'                       => 'char(64)',
             'paynet_order_id'                       => 'char(64)',
             'transport_stage'                       => 'char(64)',
-            'status'                                => 'char(64)'
+            'paynet_status'                         => 'char(64)'
         );
 	}
 
@@ -159,13 +239,9 @@ class plgVMPaymentPaynet extends vmPSPlugin
 	/**
 	 * Check if the payment conditions are fulfilled for this payment method
 	 *
-     * @param       VirtueMartCart          $cart           Shopping cart
-     * @param       stdClass                $method         Payment method options
-	 * @param       array                   $prices         Shopping cart price list
-     *
-	 * @return      boolean
+	 * @return      boolean     Always true
 	 */
-	protected function checkConditions($cart, $method, $prices)
+	protected function checkConditions()
     {
 		return true;
 	}
@@ -181,9 +257,137 @@ class plgVMPaymentPaynet extends vmPSPlugin
     {
         if (!$this->paynetProcessorAggregate)
         {
+            require_once __DIR__ . '/paynet_procesor_aggregate.php';
             $this->paynetProcessorAggregate = new PaynetProcessorAggregate($config);
         }
 
         return $this->paynetProcessorAggregate;
     }
+
+    /**
+     * Get order billing or shipping address
+     *
+     * @param       array           $order              Order
+     *
+     * @return      stdClass                            Address
+     */
+    protected function getAddress(array $order)
+    {
+        if (isset($order['details']['ST']))
+        {
+            return $order['details']['ST'];
+        }
+        elseif (isset($order['details']['BT']))
+        {
+            return $order['details']['BT'];
+        }
+        else
+        {
+            throw new RuntimeException('Address not found in order');
+        }
+    }
+
+    /**
+     * Save additional address data to DB
+     *
+     * @param       stdClass        $address            Address
+     */
+    protected function saveAddress(stdClass $address)
+    {
+        $this->storePSPluginInternalData(array
+        (
+            'virtuemart_order_id'           => $address->virtuemart_order_id,
+			'virtuemart_paymentmethod_id'   => $address->virtuemart_paymentmethod_id,
+			'client_order_id'               => $address->order_number,
+            'paynet_order_id'               => $address->paynet_order_id,
+            'transport_stage'               => $address->transport_stage,
+            'paynet_status'                 => $address->paynet_status
+        ));
+    }
+
+    /**
+     * Load additional address data from DB
+     *
+     * @param       stdClass        $address            Address
+     */
+    protected function loadAddress(stdClass $address)
+    {
+        $paynetData = $this->getDataByOrderId($address->virtuemart_order_id);
+
+        $address->paynet_order_id = $paynetData->paynet_order_id;
+        $address->transport_stage = $paynetData->transport_stage;
+        $address->paynet_status   = $paynetData->paynet_status;
+    }
+
+    /**
+     * Cancel order if error occured
+     *
+     * @param       stdClass                    $address            Address
+     * @param       TablePaymentmethods         $config             Payment plugin config
+     */
+    protected function cancelOrder(stdClass $address, TablePaymentmethods $config)
+    {
+        $order['order_status']          = $config->order_failure_status;
+        $order['virtuemart_order_id']   = $address->virtuemart_order_id;
+        $order['customer_notified']     = 0;
+        $order['comments']              = JText::_('VMPAYMENT_PAYNET_TECHNICAL_ERROR');
+
+        VmModel::getModel('orders')->updateStatusForOneOrder($address->virtuemart_order_id, $order);
+    }
+
+    /**
+     * Approve order
+     *
+     * @param       stdClass                    $address            Address
+     * @param       TablePaymentmethods         $config             Payment plugin config
+     */
+    protected function approveOrder(stdClass $address, TablePaymentmethods $config)
+    {
+        $order['order_status']          = $config->order_success_status;
+        $order['virtuemart_order_id']   = $address->virtuemart_order_id;
+        $order['customer_notified']     = 1;
+        $order['comments']              = JText::_('VMPAYMENT_PAYNET_PAYMENT_APPROVED');
+
+        VmModel::getModel('orders')->updateStatusForOneOrder($address->virtuemart_order_id, $order);
+    }
+
+    /**
+     * Display error message
+     *
+     * @param       string                      $message            Error message
+     */
+    protected function displayError($message = 'VMPAYMENT_PAYNET_TECHNICAL_ERROR')
+    {
+        JError::raiseError(500, JText::_($message));
+        JRequest::setVar('html', JText::_('VMPAYMENT_PAYNET_PAYMENT_NOT_PASSED'), 'post');
+        return false;
+    }
+
+    /**
+     * Log exception
+     *
+     * @param       Exception       $exception          Exception to log
+     */
+    protected function logException(Exception $exception)
+    {
+        JLog::add($exception, JLog::ERROR);
+    }
+
+    /**
+     * Get url for final payment processing
+     *
+     * @param       stdClass        $address        Joomla address
+     *
+     * @return      string
+     */
+    protected function getReturnUrl(stdClass $address)
+    {
+        return JRoute::_(JURI::root() . 'index.php?option=com_virtuemart' .
+                                                 '&view=pluginresponse' .
+                                                 '&task=pluginresponsereceived' .
+                                                 '&orderId='  . $address->virtuemart_order_id .
+                                                 '&methodId=' . $address->virtuemart_paymentmethod_id);
+    }
 }
+
+error_reporting($oldErrorLevel);
