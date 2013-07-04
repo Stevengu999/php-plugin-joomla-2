@@ -66,7 +66,8 @@ class plgVMPaymentPaynet extends vmPSPlugin
             $this->saveAddress($address);
             $this->cancelOrder($address, $config);
 
-            return $this->displayError();
+            JRequest::setVar('html', $this->getErrorMessage(), 'post');
+            return;
         }
 
         $this->saveAddress($address);
@@ -81,7 +82,7 @@ class plgVMPaymentPaynet extends vmPSPlugin
 	/**
      * Process response from payment system
 	 */
-	function plgVmOnPaymentResponseReceived()
+	function plgVmOnPaymentResponseReceived(&$html)
     {
         $config = $this->getVmPluginMethod(JRequest::getInt('methodId', 0));
 
@@ -106,19 +107,21 @@ class plgVMPaymentPaynet extends vmPSPlugin
             $this->saveAddress($address);
             $this->cancelOrder($address, $config);
 
-            return $this->displayError();
+            $html = $this->getErrorMessage();
+            return;
         }
 
         $this->saveAddress($address);
 
         if ($address->paynet_status == 'approved')
         {
+            $html = $this->getSuccessMessage();
             $this->approveOrder($address, $config);
         }
         else
         {
             $this->cancelOrder($address, $config);
-            $this->displayError('VMPAYMENT_PAYNET_PAYMENT_DECLINED');
+            $html = $this->getErrorMessage('VMPAYMENT_PAYNET_PAYMENT_DECLINED');
         }
 
 		VirtueMartCart::getCart()->emptyCart();
@@ -245,9 +248,26 @@ class plgVMPaymentPaynet extends vmPSPlugin
      *                                                              false if the shipping rate is not valid any more,
      *                                                              true otherwise
 	 */
-	public function plgVmonSelectedCalculatePricePayment(VirtueMartCart $cart, array &$cartPrices, &$cartPricesName)
+	public function plgVmOnSelectedCalculatePricePayment(VirtueMartCart $cart, array &$cartPrices, &$cartPricesName)
     {
 		return $this->onSelectedCalculatePrice($cart, $cartPrices, $cartPricesName);
+	}
+
+	/**
+	 * plgVmOnCheckAutomaticSelectedPayment
+	 * Checks how many plugins are available. If only one, the user will not have the choice. Enter edit_xxx page
+	 * The plugin must check first if it is the correct type
+	 *
+	 * @param       VirtueMartCart          $cart                   Cart object
+	 * @param       array                   $cartPrices             New cart prices
+	 * @param       integer                 $paymentCounter         Payment methods count
+     *
+	 * @return      null if no plugin was found, 0 if more then one plugin was found,  virtuemart_xxx_id if only one plugin is found
+	 *
+	 */
+	function plgVmOnCheckAutomaticSelectedPayment (VirtueMartCart $cart, array $cartPrices = array(), &$paymentCounter = null)
+    {
+		return $this->onCheckAutomaticSelected($cart, $cartPrices, $paymentCounter);
 	}
 
 	/**
@@ -371,11 +391,18 @@ class plgVMPaymentPaynet extends vmPSPlugin
      *
      * @param       string                      $message            Error message
      */
-    protected function displayError($message = 'VMPAYMENT_PAYNET_TECHNICAL_ERROR')
+    protected function getErrorMessage($message = 'VMPAYMENT_PAYNET_TECHNICAL_ERROR')
     {
-        JError::raiseError(500, JText::_($message));
-        JRequest::setVar('html', JText::_('VMPAYMENT_PAYNET_PAYMENT_NOT_PASSED'), 'post');
-        return false;
+        JError::raiseWarning(500, JText::_($message));
+        return JText::_('VMPAYMENT_PAYNET_PAYMENT_NOT_PASSED');
+    }
+
+    /**
+     * Display success message
+     */
+    protected function getSuccessMessage()
+    {
+        return JText::_('VMPAYMENT_PAYNET_PAYMENT_APPROVED');
     }
 
     /**
