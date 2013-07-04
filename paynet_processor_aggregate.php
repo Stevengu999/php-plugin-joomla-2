@@ -196,7 +196,7 @@ class PaynetProcessorAggregate
                             ->vendor_store_name;
 
         return  JText::_('VMPAYMENT_PAYNET_SHOPPING_IN') . ': ' . $storeName . '; ' .
-                JText::_('COM_VIRTUEMART_ORDER_ID') . ': ' . $joomlaAddress->order_numer;
+                JText::_('VMPAYMENT_PAYNET_CLIENT_ORDER_ID') . ': ' . $joomlaAddress->order_number;
     }
 
     /**
