@@ -1,0 +1,36 @@
+{
+    "name": "payneteasy/php-plugin-joomla-2",
+    "description": "Plugin for Joomla 2 and VirtueMart 2 for payment by PaynetEasy.",
+    "version": "1.0.0-dev",
+    "type": "library",
+    "keywords":
+    [
+        "payment",
+        "payneteasy",
+        "joomla",
+        "virtuemart"
+    ],
+    "homepage": "http://payneteasy.com/",
+    "license": "MIT",
+    "authors":
+    [
+        {
+            "name": "Artem Ponomarenko",
+            "email": "imenem@inbox.ru",
+            "role": "developer"
+        }
+    ],
+    "minimum-stability": "dev",
+    "repositories":
+    [
+        {
+            "type": "vcs",
+            "url": "https://github.com/payneteasy/php-library-payneteasy-api"
+        }
+    ],
+    "require":
+    {
+        "php":                                      ">=5.3.0",
+        "payneteasy/php-library-payneteasy-api":    "~1.0"
+    }
+}
