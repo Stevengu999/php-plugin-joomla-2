@@ -1,6 +1,6 @@
 <?php
 
-namespace PaynetEasy\Paynet;
+namespace PaynetEasy\PaynetEasyApi;
 
 require_once __DIR__ . '/vendor/autoload.php';
 
@@ -10,10 +10,10 @@ use ShopFunctions;
 use VmModel;
 use stdClass;
 
-use PaynetEasy\Paynet\OrderData\Order;
-use PaynetEasy\Paynet\OrderData\Customer;
+use PaynetEasy\PaynetEasyApi\OrderData\Order;
+use PaynetEasy\PaynetEasyApi\OrderData\Customer;
 
-use PaynetEasy\Paynet\OrderProcessor;
+use PaynetEasy\PaynetEasyApi\OrderProcessor;
 
 class PaynetProcessorAggregate
 {
@@ -23,7 +23,7 @@ class PaynetProcessorAggregate
      *
      * @see PaynetProcessorAggregate::getOrderProcessor
      *
-     * @var \PaynetEasy\Paynet\OrderProcessor
+     * @var \PaynetEasy\PaynetEasyApi\OrderProcessor
      */
     protected $orderProcessor;
 
@@ -48,7 +48,7 @@ class PaynetProcessorAggregate
      * @param       stdClass        $joomlaAddress                      Joomla address
      * @param       string          $returnUrl                          Url for final payment processing
      *
-     * @return      \PaynetEasy\Paynet\Transport\Response               Gateway response object
+     * @return      \PaynetEasy\PaynetEasyApi\Transport\Response               Gateway response object
      */
     public function startSale(stdClass $joomlaAddress, $returnUrl)
     {
@@ -78,7 +78,7 @@ class PaynetProcessorAggregate
      * @param       stdClass        $joomlaAddress                      Joomla address
      * @param       array           $callbacData                        Callback data
      *
-     * @return      \PaynetEasy\Paynet\Transport\CallbackResponse       Callback data object
+     * @return      \PaynetEasy\PaynetEasyApi\Transport\CallbackResponse       Callback data object
      */
     public function finishSale(stdClass $joomlaAddress, array $callbacData)
     {
@@ -128,7 +128,7 @@ class PaynetProcessorAggregate
      *
      * @param   stdClass        $joomlaAddress          Joomla address
      *
-     * @return  \PaynetEasy\Paynet\OrderData\Order      Paynet order
+     * @return  \PaynetEasy\PaynetEasyApi\OrderData\Order      Paynet order
      */
     protected function getPaynetOrder(stdClass $joomlaAddress)
     {
@@ -202,7 +202,7 @@ class PaynetProcessorAggregate
     /**
      * Get service for order processing
      *
-     * @return      \PaynetEasy\Paynet\OrderProcessor
+     * @return      \PaynetEasy\PaynetEasyApi\OrderProcessor
      */
     protected function getOrderProcessor()
     {

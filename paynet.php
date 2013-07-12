@@ -7,7 +7,7 @@ jimport('joomla.log.log');
 require_once JPATH_VM_PLUGINS . DS . 'vmpsplugin.php';
 require_once JPATH_VM_SITE . DS . 'helpers' . DS . 'cart.php';
 
-use PaynetEasy\Paynet\PaynetProcessorAggregate;
+use PaynetEasy\PaynetEasyApi\PaynetProcessorAggregate;
 
 class plgVMPaymentPaynet extends vmPSPlugin
 {
@@ -17,7 +17,7 @@ class plgVMPaymentPaynet extends vmPSPlugin
      *
      * @see plgVMPaymentPaynet::getPaynetProcessorAggregate()
      *
-     * @var PaynetEasy\Paynet\PaynetProcessorAggregate
+     * @var PaynetEasy\PaynetEasyApi\PaynetProcessorAggregate
      */
     protected $paynetProcessorAggregate;
 
