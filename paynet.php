@@ -113,7 +113,7 @@ class plgVMPaymentPaynet extends vmPSPlugin
 
         $this->saveAddress($address);
 
-        if ($address->paynet_status == 'approved')
+        if ($address->transaction_status == 'approved')
         {
             $html = $this->getSuccessMessage();
             $this->approveOrder($address, $config);
@@ -145,10 +145,10 @@ class plgVMPaymentPaynet extends vmPSPlugin
 		$html  = '<table class="adminlist" width="50%">' . "\n";
 		$html .= $this->getHtmlHeaderBE();
 
-        $html .= $this->getHtmlRowBE('PAYNET_CLIENT_ORDER_ID',  $address->client_order_id);
-        $html .= $this->getHtmlRowBE('PAYNET_PAYNET_ORDER_ID',  $address->paynet_order_id);
-        $html .= $this->getHtmlRowBE('PAYNET_ORDER_STAGE',      $address->transport_stage);
-        $html .= $this->getHtmlRowBE('PAYNET_ORDER_STATUS',     $address->paynet_status);
+        $html .= $this->getHtmlRowBE('PAYNET_CLIENT_ORDER_ID',      $address->client_order_id);
+        $html .= $this->getHtmlRowBE('PAYNET_PAYNET_ORDER_ID',      $address->paynet_order_id);
+        $html .= $this->getHtmlRowBE('PAYNET_TRANSACTION_STATUS',   $address->transaction_status);
+        $html .= $this->getHtmlRowBE('PAYNET_PAYMENT_STATUS',       $address->payment_status);
 
 		$html .= '</table>' . "\n";
 		return $html;
@@ -168,8 +168,8 @@ class plgVMPaymentPaynet extends vmPSPlugin
 			'virtuemart_paymentmethod_id'           => 'int(3)          UNSIGNED',
 			'client_order_id'                       => 'char(64)',
             'paynet_order_id'                       => 'char(64)',
-            'transport_stage'                       => 'char(64)',
-            'paynet_status'                         => 'char(64)'
+            'transaction_status'                    => 'char(64)',
+            'payment_status'                        => 'char(64)'
         );
 	}
 
@@ -334,8 +334,8 @@ class plgVMPaymentPaynet extends vmPSPlugin
 			'virtuemart_paymentmethod_id'   => $address->virtuemart_paymentmethod_id,
 			'client_order_id'               => $address->order_number,
             'paynet_order_id'               => $address->paynet_order_id,
-            'transport_stage'               => $address->transport_stage,
-            'paynet_status'                 => $address->paynet_status
+            'transaction_status'            => $address->transaction_status,
+            'payment_status'                => $address->payment_status
         ));
     }
 
@@ -348,10 +348,10 @@ class plgVMPaymentPaynet extends vmPSPlugin
     {
         $paynetData = $this->getDataByOrderId($address->virtuemart_order_id);
 
-        $address->client_order_id = $paynetData->client_order_id;
-        $address->paynet_order_id = $paynetData->paynet_order_id;
-        $address->transport_stage = $paynetData->transport_stage;
-        $address->paynet_status   = $paynetData->paynet_status;
+        $address->client_order_id       = $paynetData->client_order_id;
+        $address->paynet_order_id       = $paynetData->paynet_order_id;
+        $address->transaction_status    = $paynetData->transaction_status;
+        $address->payment_status        = $paynetData->payment_status;
     }
 
     /**

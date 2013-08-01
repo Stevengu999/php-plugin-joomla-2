@@ -40,10 +40,10 @@
             description="VMPAYMENT_PAYNET_LOGIN_DESC"
         />
         <param
-            name="control"
+            name="signing_key"
             type="text"
-            label="VMPAYMENT_PAYNET_CONTROL"
-            description="VMPAYMENT_PAYNET_CONTROL_DESC"
+            label="VMPAYMENT_PAYNET_SIGNING_KEY"
+            description="VMPAYMENT_PAYNET_SIGNING_KEY_DESC"
         />
         <param
             name="sandbox_gateway"
@@ -58,14 +58,14 @@
             description="VMPAYMENT_PAYNET_PRODUCTION_GATEWAY_DESC"
         />
         <param
-            name="sandbox_enabled"
-            type="radio"
-            default="1"
-            label="VMPAYMENT_PAYNET_SANDBOX_ENABLED"
+            name="gateway_mode"
+            type="list"
+            default="sandbox"
+            label="VMPAYMENT_PAYNET_GATEWAY_MODE"
             description="VMPAYMENT_PAYNET_SANDBOX_ENABLED_DESC"
         >
-            <option value="0">COM_VIRTUEMART_NO</option>
-            <option value="1">COM_VIRTUEMART_YES</option>
+            <option value="sandbox">Sandbox</option>
+            <option value="production">Production</option>
         </param>
         <param
             name="order_success_status"

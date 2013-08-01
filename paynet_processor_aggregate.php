@@ -10,22 +10,30 @@ use ShopFunctions;
 use VmModel;
 use stdClass;
 
-use PaynetEasy\PaynetEasyApi\OrderData\Order;
-use PaynetEasy\PaynetEasyApi\OrderData\Customer;
+use RuntimeException;
 
-use PaynetEasy\PaynetEasyApi\OrderProcessor;
+use PaynetEasy\PaynetEasyApi\PaymentData\PaymentTransaction;
+use PaynetEasy\PaynetEasyApi\PaymentData\Payment;
+use PaynetEasy\PaynetEasyApi\PaymentData\Customer;
+use PaynetEasy\PaynetEasyApi\PaymentData\BillingAddress;
+
+use PaynetEasy\PaynetEasyApi\Utils\Validator;
+use PaynetEasy\PaynetEasyApi\PaymentData\QueryConfig;
+use PaynetEasy\PaynetEasyApi\Transport\CallbackResponse;
+
+use PaynetEasy\PaynetEasyApi\PaymentProcessor;
 
 class PaynetProcessorAggregate
 {
     /**
      * Order processor instance.
-     * For lazy loading use PaynetProcessorAggregate::getOrderProcessor()
+     * For lazy loading use PaynetProcessorAggregate::getPaymentProcessor()
      *
-     * @see PaynetProcessorAggregate::getOrderProcessor
+     * @see PaynetProcessorAggregate::getPaymentProcessor
      *
-     * @var \PaynetEasy\PaynetEasyApi\OrderProcessor
+     * @var \PaynetEasy\PaynetEasyApi\PaymentProcessor
      */
-    protected $orderProcessor;
+    protected $paymentProcessor;
 
     /**
      * @var TablePaymentmethods
@@ -48,22 +56,21 @@ class PaynetProcessorAggregate
      * @param       stdClass        $joomlaAddress                      Joomla address
      * @param       string          $returnUrl                          Url for final payment processing
      *
-     * @return      \PaynetEasy\PaynetEasyApi\Transport\Response               Gateway response object
+     * @return      \PaynetEasy\PaynetEasyApi\Transport\Response        Gateway response object
      */
     public function startSale(stdClass $joomlaAddress, $returnUrl)
     {
-        $queryConfig = $this->getQueryConfig($returnUrl);
-        $paynetOrder = $this->getPaynetOrder($joomlaAddress);
+        $paynetTransaction = $this->getPaynetTransaction($joomlaAddress, $returnUrl);
 
         try
         {
             $response = $this
-                ->getOrderProcessor()
-                ->executeQuery('sale-form', $queryConfig, $paynetOrder);
+                ->getPaymentProcessor()
+                ->executeQuery('sale-form', $paynetTransaction);
         } catch (Exception $e) {}
         // finally
         {
-            $this->updateAddress($joomlaAddress, $paynetOrder);
+            $this->updateAddress($joomlaAddress, $paynetTransaction);
             if (isset($e)) throw $e;
         }
 
@@ -76,110 +83,116 @@ class PaynetProcessorAggregate
      * After that order must be updated and saved.
      *
      * @param       stdClass        $joomlaAddress                      Joomla address
-     * @param       array           $callbacData                        Callback data
+     * @param       array           $callbackData                       Callback data
      *
      * @return      \PaynetEasy\PaynetEasyApi\Transport\CallbackResponse       Callback data object
      */
-    public function finishSale(stdClass $joomlaAddress, array $callbacData)
+    public function finishSale(stdClass $joomlaAddress, array $callbackData)
     {
-        $queryConfig = $this->getQueryConfig();
-        $paynetOrder = $this->getPaynetOrder($joomlaAddress);
+        $paynetTransaction = $this->getPaynetTransaction($joomlaAddress);
 
         try
         {
-            $response = $this
-                ->getOrderProcessor()
-                ->executeCallback($callbacData, $queryConfig, $paynetOrder);
+            $callbackResponse = $this
+                ->getPaymentProcessor()
+                ->processCustomerReturn(new CallbackResponse($callbackData), $paynetTransaction);
         } catch (Exception $e) {}
         // finally
         {
-            $this->updateAddress($joomlaAddress, $paynetOrder);
+            $this->updateAddress($joomlaAddress, $paynetTransaction);
             if (isset($e)) throw $e;
         }
 
-        return $response;
-    }
-
-    /**
-     * Get payment query config
-     *
-     * @return      array       Payment query config
-     */
-    protected function getQueryConfig($returnUrl = null)
-    {
-        $config = array
-        (
-            'end_point' => $this->paymentConfig->end_point,
-            'login'     => $this->paymentConfig->login,
-            'control'   => $this->paymentConfig->control,
-        );
-
-        if ($returnUrl)
-        {
-            $config['redirect_url']         = $returnUrl;
-            $config['server_callback_url']  = $returnUrl;
-        }
-
-        return $config;
+        return $callbackResponse;
     }
 
     /**
      * Transform joomla order to paynet order
      *
-     * @param   stdClass        $joomlaAddress          Joomla address
+     * @param       stdClass        $joomlaAddress      Joomla address
+     * @param       string          $redirectUrl        Url for final payment processing
      *
-     * @return  \PaynetEasy\PaynetEasyApi\OrderData\Order      Paynet order
+     * @return      PaymentTransaction                  Paynet order
      */
-    protected function getPaynetOrder(stdClass $joomlaAddress)
+    protected function getPaynetTransaction(stdClass $joomlaAddress, $redirectUrl = null)
     {
-        $paynetOrder    = new Order;
-        $paynetCustomer = new Customer;
+        $queryConfig        = new QueryConfig;
+        $paynetAddress      = new BillingAddress;
+        $paynetTransaction  = new PaymentTransaction;
+        $paynetPayment      = new Payment;
+        $paynetCustomer     = new Customer;
 
         $countryCode    = ShopFunctions::getCountryByID($joomlaAddress->virtuemart_country_id, 'country_2_code');
         $currencyCode   = ShopFunctions::getCurrencyByID($joomlaAddress->order_currency, 'currency_code_3');
 
-        $paynetCustomer
+        $paynetAddress
             ->setCountry($countryCode)
             ->setCity($joomlaAddress->city)
-            ->setAddress($joomlaAddress->address_1)
+            ->setFirstLine($joomlaAddress->address_1)
             ->setZipCode($joomlaAddress->zip)
             ->setPhone($joomlaAddress->phone_1 ?: '(000) 00-00-00')
-            ->setEmail($joomlaAddress->email)
-            ->setFirstName($joomlaAddress->first_name)
-            ->setLastName($joomlaAddress->last_name)
         ;
 
         if (isset($joomlaAddress->virtuemart_state_id))
         {
             $stateCode = ShopFunctions::getStateByID($joomlaAddress->virtuemart_state_id, 'state_2_code');
-            $paynetCustomer->setState($stateCode);
+            $paynetAddress->setState($stateCode);
         }
 
-        $paynetOrder
-            ->setClientOrderId($joomlaAddress->order_number)
+        $paynetCustomer
+            ->setEmail($joomlaAddress->email)
+            ->setFirstName($joomlaAddress->first_name)
+            ->setLastName($joomlaAddress->last_name)
+            ->setIpAddress($joomlaAddress->ip_address)
+        ;
+
+        $paynetPayment
+            ->setClientId($joomlaAddress->order_number)
             ->setDescription($this->getPaynetOrderDescription($joomlaAddress))
             ->setAmount($joomlaAddress->order_total)
             ->setCurrency($currencyCode)
-            ->setIpAddress($joomlaAddress->ip_address)
             ->setCustomer($paynetCustomer)
+            ->setBillingAddress($paynetAddress)
         ;
 
         if (isset($joomlaAddress->paynet_order_id))
         {
-            $paynetOrder->setPaynetOrderId($joomlaAddress->paynet_order_id);
+            $paynetPayment->setPaynetId($joomlaAddress->paynet_order_id);
         }
 
-        if (isset($joomlaAddress->transport_stage))
+        if (isset($joomlaAddress->payment_status))
         {
-            $paynetOrder->setTransportStage($joomlaAddress->transport_stage);
+            $paynetPayment->setStatus($joomlaAddress->payment_status);
         }
 
-        if (isset($joomlaAddress->paynet_status))
+        $queryConfig
+            ->setEndPoint($this->getConfig('end_point'))
+            ->setLogin($this->getConfig('login'))
+            ->setSigningKey($this->getConfig('signing_key'))
+            ->setGatewayMode($this->getConfig('gateway_mode'))
+            ->setGatewayUrlSandbox($this->getConfig('sandbox_gateway'))
+            ->setGatewayUrlProduction($this->getConfig('production_gateway'))
+        ;
+
+        if (Validator::validateByRule($redirectUrl, Validator::URL, false))
         {
-            $paynetOrder->setStatus($joomlaAddress->paynet_status);
+            $queryConfig
+                ->setRedirectUrl($redirectUrl)
+                ->setCallbackUrl($redirectUrl)
+            ;
         }
 
-        return $paynetOrder;
+        $paynetTransaction
+            ->setPayment($paynetPayment)
+            ->setQueryConfig($queryConfig)
+        ;
+
+        if (isset($joomlaAddress->transaction_status))
+        {
+            $paynetTransaction->setStatus($joomlaAddress->transaction_status);
+        }
+
+        return $paynetTransaction;
     }
 
     /**
@@ -202,37 +215,49 @@ class PaynetProcessorAggregate
     /**
      * Get service for order processing
      *
-     * @return      \PaynetEasy\PaynetEasyApi\OrderProcessor
+     * @return      \PaynetEasy\PaynetEasyApi\PaymentProcessor
      */
-    protected function getOrderProcessor()
+    protected function getPaymentProcessor()
     {
-        if (is_null($this->orderProcessor))
+        if (is_null($this->paymentProcessor))
         {
-            if ($this->paymentConfig->sandbox_enabled)
-            {
-                $gatewayUrl = $this->paymentConfig->sandbox_gateway;
-            }
-            else
-            {
-                $gatewayUrl = $this->paymentConfig->production_gateway;
-            }
-
-            $this->orderProcessor = new OrderProcessor($gatewayUrl);
+            $this->paymentProcessor = new PaymentProcessor;
         }
 
-        return $this->orderProcessor;
+        return $this->paymentProcessor;
     }
 
     /**
      * Updates joomla address by paynet order data
      *
-     * @param       stdClass        $joomlaAddress          Joomla address
-     * @param       Order           $paynetOrder            Paynet order
+     * @param       stdClass                $joomlaAddress          Joomla address
+     * @param       PaymentTransaction      $paymentTransaction     Paynet payment transaction
      */
-    protected function updateAddress(stdClass $joomlaAddress, Order $paynetOrder)
+    protected function updateAddress(stdClass $joomlaAddress, PaymentTransaction $paymentTransaction)
     {
-        $joomlaAddress->paynet_order_id = $paynetOrder->getPaynetOrderId();
-        $joomlaAddress->transport_stage = $paynetOrder->getTransportStage();
-        $joomlaAddress->paynet_status   = $paynetOrder->getStatus();
+        $payment = $paymentTransaction->getPayment();
+
+        $joomlaAddress->paynet_order_id     = $payment->getPaynetId();
+        $joomlaAddress->transaction_status  = $paymentTransaction->getStatus();
+        $joomlaAddress->payment_status      = $payment->getStatus();
+    }
+
+    /**
+     * Get payment config node value
+     *
+     * @param       string      $key        Config node key
+     *
+     * @return      scalar                  Config node value
+     */
+    protected function getConfig($key)
+    {
+        if (isset($this->paymentConfig->$key))
+        {
+            return $this->paymentConfig->$key;
+        }
+        else
+        {
+            throw new RuntimeException("Unknown config node key '{$key}'");
+        }
     }
 }
