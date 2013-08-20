@@ -190,7 +190,7 @@ class plgVMPaymentPaynet extends vmPSPlugin
 	 */
 	public function getVmPluginCreateTableSQL()
     {
-		return $this->createTableSQL('Payment Paynet Table');
+		return $this->createTableSQL('Payment PaynetEasy Table');
 	}
 
     /**
@@ -433,7 +433,7 @@ class plgVMPaymentPaynet extends vmPSPlugin
 
     /**
      * Get order from DB by virtuemart order id.
-     * Also method loads additional paynet address data.
+     * Also method loads additional PaynetEasy address data.
      *
      * @param       integer         $orderId            Virtuemart order id
      *

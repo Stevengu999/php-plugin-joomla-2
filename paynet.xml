@@ -6,7 +6,7 @@
     group="vmpayment"
     method="upgrade"
 >
-    <name>Paynet Payment for VirtueMart</name>
+    <name>PaynetEasy Payment for VirtueMart</name>
     <author>Artem Ponomarenko</author>
     <creationDate>July 2013</creationDate>
     <license>MIT</license>

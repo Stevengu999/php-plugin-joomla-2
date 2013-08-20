@@ -50,7 +50,7 @@ class PaynetProcessorAggregate
 
     /**
      * Starts order processing.
-     * Method executes query to paynet gateway and returns response from gateway.
+     * Method executes query to PaynetEasy gateway and returns response from gateway.
      * After that user must be redirected to the Response::getRedirectUrl()
      *
      * @param       stdClass        $joomlaAddress                      Joomla address
@@ -107,12 +107,12 @@ class PaynetProcessorAggregate
     }
 
     /**
-     * Transform joomla order to paynet order
+     * Transform joomla order to PaynetEasy order
      *
      * @param       stdClass        $joomlaAddress      Joomla address
      * @param       string          $redirectUrl        Url for final payment processing
      *
-     * @return      PaymentTransaction                  Paynet order
+     * @return      PaymentTransaction                  PaynetEasy order
      */
     protected function getPaynetTransaction(stdClass $joomlaAddress, $redirectUrl = null)
     {
@@ -196,7 +196,7 @@ class PaynetProcessorAggregate
     }
 
     /**
-     * Get paynet order description
+     * Get PaynetEasy order description
      *
      * @param           stdClass        $joomlaAddress          Joomla address
      *
@@ -228,10 +228,10 @@ class PaynetProcessorAggregate
     }
 
     /**
-     * Updates joomla address by paynet order data
+     * Updates joomla address by PaynetEasy order data
      *
      * @param       stdClass                $joomlaAddress          Joomla address
-     * @param       PaymentTransaction      $paymentTransaction     Paynet payment transaction
+     * @param       PaymentTransaction      $paymentTransaction     PaynetEasy payment transaction
      */
     protected function updateAddress(stdClass $joomlaAddress, PaymentTransaction $paymentTransaction)
     {
